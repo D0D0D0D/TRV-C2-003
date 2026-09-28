@@ -1,0 +1,90 @@
+# Domain rule KB — baseline seed (TRV-C2-003 Travel Inquiry Triage & Routing).
+#
+# This is the bundled fallback KB used when config.domain_rules.operator_kb_path is
+# null / unreadable (docs/02_design.md §3 C-3). An operator may override it with a
+# same-shaped file; a malformed operator KB is a fail-closed ConfigError (never a
+# silent fall-through to this seed). Values are DATA — thresholds are runtime-tunable
+# management items (docs §0 / §4). Boundaries are stated as "min inclusive / max
+# exclusive" (docs §4-1) so R2 day-count banding is unambiguous.
+#
+# All values below reflect generic standard travel-agency terms; an operator swaps
+# them for their own tariff without touching code.
+
+version: 1
+
+# R-routing: intent -> front-desk queue (closed routing_target enum). "other" and
+# any unknown intent fall to manual_triage (never fabricated routing).
+routing_table:
+  reservation: reservations
+  cancellation: cancellation
+  rebooking: rebooking
+  complaint: complaints
+  visa: visa_immigration
+  emergency: emergency_desk
+  other: manual_triage
+
+# R2 cancellation-fee bands by days_until_departure (departure_local_date minus
+# reference_local_date). Ordered; a day matches the first band whose
+# [min_days_inclusive, max_days_exclusive) window contains it. null = unbounded.
+# Standard tariff: >=21d free, 20-8d low, 7-2d medium, 1-0d (day before / same day)
+# high, after departure / no-show full.
+cancellation_fee_bands:
+  - band: full
+    min_days_inclusive: null
+    max_days_exclusive: 0        # days < 0 (after departure / no-show)
+  - band: high
+    min_days_inclusive: 0
+    max_days_exclusive: 2        # 0-1 days (same day / day before)
+  - band: medium
+    min_days_inclusive: 2
+    max_days_exclusive: 8        # 2-7 days
+  - band: low
+    min_days_inclusive: 8
+    max_days_exclusive: 21       # 8-20 days
+  - band: none
+    min_days_inclusive: 21
+    max_days_exclusive: null     # 21+ days (free cancellation)
+
+# R3 visa complexity matrix (docs §4-2): never answers eligibility, never fetches
+# externally. Any missing observation (arrival_country / nationality / purpose) is
+# treated as "complex" (safe side) and always routed to visa_immigration. A small
+# simple set keeps low-risk cases labelled "simple" for handoff priority only.
+visa:
+  simple_purposes:
+    - transit
+  simple_country_pairs: []       # e.g. ["JP>US"]; empty = purpose-only simplicity
+
+# R1 deterministic keyword layer — doubles the LLM emergency_signal so an emergency
+# is never missed when the LLM is unavailable or under-reports (docs §5). Matched
+# after NFKC + casefold normalisation (substring). Intentionally short and obvious
+# (product-safety mitigation, not exhaustive lexicon).
+emergency_keywords:
+  - 事故
+  - 急病
+  - 入院
+  - 救急
+  - 救急車
+  - 緊急
+  - 危篤
+  - 意識不明
+  - 盗難
+  - パスポート紛失
+  - 地震
+  - 津波
+  - 災害
+  - emergency
+  - accident
+  - ambulance
+  - hospital
+  - stolen passport
+  - lost passport
+  - earthquake
+
+# Priority derivation inputs (deterministic). Conflict order is fixed in code:
+# R1 emergency > R6 low_confidence > R2/R3/R4/R5 (docs §4). Imminent departure is
+# expressed through the R2 "high" band (0–1 days), so no separate day field here.
+priority:
+  emergency: urgent               # R1
+  severe_sentiment: high          # R4 severe
+  imminent_cancellation: high     # R2 high/full band (imminent/expired departure)
+  default: normal

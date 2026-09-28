@@ -1,0 +1,17 @@
+# Runtime parameters — loaded separately from the static manifest and passed
+# as Graph(config=...). agent.yaml identifies and locates the agent; this file
+# holds everything a deployment tunes.
+
+max_retry: 3
+timeout_seconds: 30
+hitl:
+  enabled: false
+operator_timezone: Asia/Tokyo
+domain_rules:
+  operator_kb_path: null
+  baseline_seed_path: config/domain_rules.baseline.yaml
+thresholds:
+  low_confidence: 0.55
+  medium_sentiment_severity: 0.5
+  high_sentiment_severity: 0.75
+  max_input_chars: 8000

@@ -1,0 +1,28 @@
+# Agent Manifest — AgentRegistry entry point
+# AgentRegistry reads every key below at ROOT level — do NOT nest under an `agent:`
+# block: a nested manifest is invisible to the registry. Runtime parameters live
+# in config/config.yaml, not here.
+id: "TRV-C2-003"
+name: "Travel Inquiry Triage & Routing Agent"
+namespace: "trv"
+version: "1.0.0"
+enabled: true
+category: "Cat 2"
+# Static generation contract (deterministic | llm).
+generation_mode: "llm"
+industry: "TRV"
+
+# Opaque compatibility metadata. Not an inheritance selector.
+base_type: "AgentBaseGraph"
+
+# Entry point — a single dotted import path (module.Class), NOT split module:/class:.
+class: "src.graph.graph.TravelInquiryTriageAgent"
+
+# Security
+required_trust_level: "VERIFIED_EXTERNAL"
+
+# Compile-time gates (require_at_compile). Declare every secret obtained through an
+# unguarded ctx.secrets.require(), and every extra that must exist in EXTRAS_MAP.
+requires:
+  secrets: []
+  extras: []
